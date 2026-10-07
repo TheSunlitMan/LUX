@@ -49,6 +49,7 @@ jobs:
           name: fastapi-service
           path: |
             app.py
+            streamlit_app.py
             requirements.txt
             README.md
           retention-days: 7
