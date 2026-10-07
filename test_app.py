@@ -76,3 +76,16 @@ def test_quiz_wrong_answer():
 
     assert response.status_code == 200
     assert response.json()["correct"] is False
+
+
+def test_random_word():
+    response = client.get("/random-word")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] in range(1, 6)
+    assert data["latin"]
+    assert data["translation"]
+    assert data["part_of_speech"]

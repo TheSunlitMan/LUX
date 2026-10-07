@@ -202,13 +202,11 @@ def check_translation(
 
 @app.get("/random-word")
 def get_random_word():
-    """Return a random word without its translation."""
     word = random.choice(WORDS)
-
     logger.info("Random word selected: %s", word["latin"])
-
     return {
         "id": word["id"],
         "latin": word["latin"],
+        "translation": word["translation"],
         "part_of_speech": word["part_of_speech"],
     }
