@@ -1,24 +1,184 @@
 # LUX — Latin Dictionary API
 
-LUX is a small educational service for learning Latin vocabulary.
+LUX — небольшой учебный сервис для изучения латинской лексики.
 
-The project combines a **FastAPI REST API** with an **interactive Streamlit web interface**. It provides dictionary search, random vocabulary practice and a translation quiz.
+Проект объединяет **REST API на FastAPI** и **интерактивный веб-интерфейс на Streamlit**. Он позволяет искать слова в словаре, практиковаться со случайными словами и проверять знание перевода в викторине.
 
-## Features
+## Что понадобится
 
-* Get all dictionary words
-* Get a word by ID
-* Search words by Latin word or Russian translation
-* Check translations with a quiz
-* Get a random word
-* Interactive Streamlit web interface
-* Interactive vocabulary quiz without manual word ID input
-* Health and version endpoints
-* Application logging
-* Automated tests with pytest
-* Continuous Integration with GitHub Actions
+- Linux, macOS или другая система с Python. Команды ниже рассчитаны на Bash в Linux.
+- Python 3.12 или новее. CI проверяет проект на Python 3.12.
+- Git, pip и модуль venv.
+- Интернет для клонирования и установки зависимостей.
+- Два терминала для API и веб-интерфейса; третий — для проверок.
 
-## Project structure
+## 1. Клонировать проект в новую папку
+
+```bash
+mkdir -p ~/Projects
+cd ~/Projects
+git clone https://github.com/TheSunlitMan/LUX.git
+cd LUX
+pwd
+```
+
+## 2. Создать и активировать окружение
+
+Находясь в `~/Projects/LUX`, выполните:
+
+```bash
+python3 -m venv lux
+source lux/bin/activate
+python --version
+python -m pip --version
+```
+
+## 3. Установить зависимости
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip check
+```
+
+## 4. Создать локальный файл настроек
+
+```bash
+cp -n .env.example .env
+```
+
+Существующий `.env` эта команда не перезаписывает. Для редактирования откройте `.env` в текстовом редакторе. Исходные настройки:
+
+```dotenv
+APP_NAME=Latin Dictionary
+APP_VERSION=0.1.0
+```
+
+| Переменная | Назначение | Значение по умолчанию |
+| --- | --- | --- |
+| `APP_NAME` | Название приложения в документации и `/version` | `Latin Dictionary` |
+| `APP_VERSION` | Версия приложения в документации и `/version` | `0.1.0` |
+
+Приложение читает переменные через `os.getenv()`. Команда запуска ниже загружает `.env` через Uvicorn. Переменные, уже заданные в окружении терминала, имеют приоритет. После изменения настроек перезапустите сервер.
+
+
+## 5. Запустить FastAPI
+
+В первом терминале из корня проекта с активированным окружением:
+
+```bash
+python -m uvicorn app:app --env-file .env --host 127.0.0.1 --port 8000
+```
+
+Это обычный запуск без автоматической перезагрузки. Оставьте терминал открытым: сервер работает, пока запущена эта команда. Дождитесь сообщения `Application startup complete`.
+
+Откройте в браузере:
+
+- Документация и выполнение запросов: http://127.0.0.1:8000/docs
+- Проверка сервиса: http://127.0.0.1:8000/health
+- Название и версия: http://127.0.0.1:8000/version
+
+```bash
+python -m uvicorn app:app --env-file .env --host 127.0.0.1 --port 8000 --reload
+```
+
+## 6. Проверить работающий API
+
+Откройте второй терминал. Для curl активация Python-окружения не требуется.
+
+```bash
+curl -i http://127.0.0.1:8000/health
+curl -i http://127.0.0.1:8000/version
+curl -i http://127.0.0.1:8000/words
+curl -i http://127.0.0.1:8000/words/1
+curl -i --get http://127.0.0.1:8000/search --data-urlencode 'q=aqua'
+curl -i --get http://127.0.0.1:8000/quiz/1 --data-urlencode 'answer=друг'
+curl -i http://127.0.0.1:8000/random-word
+```
+
+Ожидается `200 OK`. `/health` возвращает `{"status":"ok"}`. При исходных настройках `/version` возвращает `{"name":"Latin Dictionary","version":"0.1.0"}`. Ответ викторины содержит `"correct":true`.
+
+Проверка ошибки:
+
+```bash
+curl -i http://127.0.0.1:8000/words/999
+```
+
+Ожидается `404 Not Found` и `{"detail":"Word not found"}`.
+
+Чтобы проверить чтение `.env`, временно замените `APP_VERSION=0.1.0` на `APP_VERSION=0.1.1`, остановите и снова запустите API, затем запросите `/version`. После проверки верните исходное значение и перезапустите сервер.
+
+## 7. Запустить веб-интерфейс Streamlit
+
+API из шага 5 должен продолжать работать. Во втором терминале:
+
+```bash
+cd ~/Projects/LUX-clean
+source lux/bin/activate
+python -m streamlit run streamlit_app.py
+```
+
+Откройте http://localhost:8501 или адрес из вывода Streamlit.
+
+В интерфейсе доступны поиск, просмотр словаря, случайное слово и викторина. В викторине нажмите «Новое слово», введите перевод и нажмите «Проверить ответ».
+
+## 8. Запустить автоматические тесты
+
+В отдельном терминале:
+
+```bash
+cd ~/Projects/LUX-clean
+source lux/bin/activate
+python -m pytest -v
+```
+
+Предварительно запускать серверы не требуется: тесты используют FastAPI TestClient. Текущий набор содержит 9 тестов: health, version, список слов, поиск по ID, неизвестный ID, поиск, правильный и неправильный ответы викторины, случайное слово.
+
+## Маршруты API
+
+| Метод | Путь | Назначение |
+| --- | --- | --- |
+| GET | `/health` | Проверка работоспособности |
+| GET | `/version` | Название и версия приложения |
+| GET | `/words` | Все слова |
+| GET | `/words/{word_id}` | Слово по числовому ID |
+| GET | `/search?q=...` | Поиск по латинскому слову или русскому переводу |
+| GET | `/quiz/{word_id}?answer=...` | Проверка перевода |
+| GET | `/random-word` | Случайное слово с переводом |
+
+## Логи и диагностика
+
+Логи запуска, HTTP-запросов и операций словаря выводятся в терминал с Uvicorn. Отдельный файл логов автоматически не создаётся. Сообщения Streamlit смотрите в его терминале.
+
+| Проблема | Что проверить |
+| --- | --- |
+| `Connection refused` | Запущен ли API, завершился ли запуск успешно, совпадают ли адрес и порт |
+| `Address already in use` | Возможно, API уже работает в другом терминале. Остановите свой предыдущий процесс через `Ctrl+C` |
+| `No module named ...` | Активируйте `source lux/bin/activate` и повторите установку зависимостей |
+| `Could not import module "app"` | Перейдите в корень проекта, где лежит `app.py`, и повторите запуск |
+| Изменения `.env` не видны | Перезапустите API; проверьте использование `--env-file .env` и переменные окружения терминала |
+| `404` при открытии `/` | Используйте `/docs`: корневого маршрута нет |
+| `404` при запросе слова | Убедитесь, что ID существует: текущие ID от 1 до 5 |
+| `422` | Проверьте числовой ID и обязательные непустые параметры `q` или `answer` |
+| Ошибка подключения в Streamlit | Запустите API на `127.0.0.1:8000` и проверьте `/health` |
+
+Если нужен другой порт только для API:
+
+```bash
+python -m uvicorn app:app --env-file .env --host 127.0.0.1 --port 8001
+```
+
+Проверяйте его на `http://127.0.0.1:8001/docs`. Для работы Streamlit с этим портом также измените `API_URL` в `streamlit_app.py`.
+
+## GitHub Actions
+
+Workflow `.github/workflows/ci.yml` запускается при push в `main` и pull request в `main`. Он устанавливает Python 3.12 и зависимости, выполняет `python -m pytest -v`, затем отдельным заданием после успешных тестов загружает artifact `fastapi-service`.
+
+Artifact содержит `app.py`, `streamlit_app.py`, `requirements.txt` и `README.md`. В текущем workflow срок хранения — 7 дней. `.env` в artifact не включается; для запуска после скачивания задайте переменные окружения или создайте локальный `.env` со значениями из раздела настроек.
+
+Для проверки откройте вкладку Actions репозитория, выберите последний запуск для актуального коммита и убедитесь, что задания `test` и `package` зелёные. Artifact доступен на странице запуска до истечения срока хранения.
+
+## Структура проекта
 
 ```text
 LUX/
@@ -28,238 +188,12 @@ LUX/
 ├── requirements.txt
 ├── .env.example
 ├── .gitignore
+├── LICENSE
 ├── README.md
-└── .github/
-    └── workflows/
-        └── ci.yml
+└── .github/workflows/ci.yml
 ```
 
-## Requirements
 
-* Python 3.12+
-* pip
+## Автор
 
-## Installation
-
-Clone the repository and create a virtual environment:
-
-```bash
-git clone https://github.com/TheSunlitMan/LUX.git
-cd LUX
-
-python3 -m venv lux
-source lux/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-## Running the application
-
-### FastAPI
-
-Start the API server:
-
-```bash
-uvicorn app:app --reload
-```
-
-The API will be available at:
-
-```text
-http://127.0.0.1:8000
-```
-
-Interactive API documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-### Streamlit
-
-Open another terminal, activate the same virtual environment and run:
-
-```bash
-source lux/bin/activate
-streamlit run streamlit_app.py
-```
-
-The Streamlit interface will be available at the address shown by Streamlit, usually:
-
-```text
-http://localhost:8501
-```
-
-The Streamlit interface provides:
-
-* dictionary search;
-* complete dictionary view;
-* random Latin word with Russian translation;
-* interactive translation quiz.
-
-The FastAPI server must be running before using the Streamlit interface because the web interface communicates with the API.
-
-## API endpoints
-
-| Method | Endpoint                     | Description                  |
-| ------ | ---------------------------- | ---------------------------- |
-| GET    | `/health`                    | Service health check         |
-| GET    | `/version`                   | Application name and version |
-| GET    | `/words`                     | Get all dictionary words     |
-| GET    | `/words/{word_id}`           | Get a word by ID             |
-| GET    | `/search?q=...`              | Search the dictionary        |
-| GET    | `/quiz/{word_id}?answer=...` | Check a translation          |
-| GET    | `/random-word`               | Get a random word            |
-
-## API examples
-
-Get all words:
-
-```text
-GET /words
-```
-
-Get a word by ID:
-
-```text
-GET /words/1
-```
-
-Search for a word:
-
-```text
-GET /search?q=aqua
-```
-
-Check a translation:
-
-```text
-GET /quiz/1?answer=друг
-```
-
-Get a random word:
-
-```text
-GET /random-word
-```
-
-Example response:
-
-```json
-{
-  "id": 1,
-  "latin": "amicus",
-  "translation": "друг",
-  "part_of_speech": "существительное"
-}
-```
-
-## Environment variables
-
-The application supports the following environment variables:
-
-* `APP_NAME` — application name
-* `APP_VERSION` — application version
-
-If they are not specified, default values are used.
-
-Example:
-
-```text
-APP_NAME=Latin Dictionary
-APP_VERSION=0.1.0
-```
-
-A template is provided in `.env.example`.
-
-The `.env` file is ignored by Git and should not be committed if it contains local configuration or secrets.
-
-## Logging and diagnostics
-
-The application writes information about API requests to the application log.
-
-The `/health` endpoint can be used to check whether the service is running:
-
-```text
-GET /health
-```
-
-Expected response:
-
-```json
-{
-  "status": "ok"
-}
-```
-
-The `/version` endpoint returns the current application name and version:
-
-```text
-GET /version
-```
-
-Example response:
-
-```json
-{
-  "name": "Latin Dictionary",
-  "version": "0.1.0"
-}
-```
-
-These endpoints can be used for basic service diagnostics.
-
-## Testing
-
-Run all automated tests with:
-
-```bash
-python -m pytest -v
-```
-
-The test suite covers:
-
-* health check;
-* application version;
-* retrieving all words;
-* retrieving a word by ID;
-* handling an unknown word;
-* dictionary search;
-* correct quiz answers;
-* incorrect quiz answers;
-* random word response.
-
-## Continuous Integration
-
-GitHub Actions automatically runs the test suite for:
-
-* pushes to `main`;
-* pull requests targeting `main`.
-
-The CI pipeline:
-
-1. Checks out the repository.
-2. Sets up Python 3.12.
-3. Installs dependencies from `requirements.txt`.
-4. Runs the automated test suite.
-5. Uploads the tested application as a GitHub Actions artifact.
-
-The artifact contains the main application files, including the FastAPI API and Streamlit interface.
-
-## Development workflow
-
-The project is developed using Git feature branches and pull requests.
-
-Each significant feature or improvement is developed in a separate branch, tested locally and merged into `main` through a pull request.
-
-## Author
-
-**Kirill Ialkovskii**
-
-*HSE University · Applied Neural Networks*
-
-📧 `kaialkovskii@edu.hse.ru`
+Kirill Ialkovskii — HSE University, Applied Neural Networks.
